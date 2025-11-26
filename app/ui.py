@@ -7,17 +7,20 @@ from typing import List, Dict, Any
 from app.utils import STAParser, generate_pdf_bytes
 from app.inference import TimingAnalyzer
 from app.models import TimingPath
+from api_manager import get_api_key
+from logger import log_action
 
 
 def setup_sidebar() -> Dict[str, Any]:
     """Setup sidebar configuration"""
     st.sidebar.header("⚙️ Configuration")
 
-    api_key = st.sidebar.text_input(
-        "Groq API Key",
-        type="password",
-        help="Get your API key from https://console.groq.com/"
-    )
+    # Get API key from stored configuration
+    api_key = get_api_key()
+    if not api_key:
+        st.sidebar.error("❌ API key not configured. Please contact admin.")
+    else:
+        st.sidebar.success("✅ API key configured")
 
     st.sidebar.header("📁 Upload Files")
     timing_file = st.sidebar.file_uploader(
@@ -109,6 +112,8 @@ def display_analysis_results(analyses: List[Dict], config: Dict):
 
 def create_download_buttons(analyses: List[Dict], parsed_paths: List[TimingPath]):
     """Create download buttons for analysis results"""
+    username = st.session_state.get("username", "Unknown")
+    
     col1, col2 = st.columns(2)
 
     with col1:
@@ -119,24 +124,30 @@ def create_download_buttons(analyses: List[Dict], parsed_paths: List[TimingPath]
             "original_paths": [p.dict() for p in parsed_paths]
         }, indent=2)
 
-        st.download_button(
+        if st.download_button(
             label="📥 Download JSON Report",
             data=json_data,
             file_name="timing_analysis.json",
             mime="application/json"
-        )
+        ):
+            log_action(username, "Download JSON Report", {
+                "total_paths": len(analyses)
+            })
 
     with col2:
         # Generate PDF bytes and create download button
         try:
             pdf_bytes = generate_pdf_bytes(analyses)
-            st.download_button(
+            if st.download_button(
                 label="📄 Download PDF Report",
                 data=pdf_bytes,
                 file_name="timing_analysis_report.pdf",
                 mime="application/pdf",
                 key="pdf_download"
-            )
+            ):
+                log_action(username, "Download PDF Report", {
+                    "total_paths": len(analyses)
+                })
         except Exception as e:
             st.error(f"PDF generation failed: {str(e)}")
 
@@ -162,9 +173,18 @@ def show_instructions():
 def main_ui():
     """Main UI function"""
     config = setup_sidebar()
+    
+    # Get current username from session state
+    username = st.session_state.get("username", "Unknown")
 
     if config["timing_file"] and config["api_key"]:
         if st.button("🚀 Run Analysis", type="primary"):
+            # Log the action
+            log_action(username, "Run STA Analysis", {
+                "filename": config["timing_file"].name,
+                "analyze_violations_only": config["analyze_violations_only"]
+            })
+            
             with st.spinner("Parsing timing report..."):
                 report_content = config["timing_file"].getvalue().decode("utf-8")
                 parser = STAParser(report_content)
@@ -172,6 +192,7 @@ def main_ui():
 
             if not parsed_paths:
                 st.warning("No valid timing paths found in the report")
+                log_action(username, "STA Analysis Failed", {"reason": "No valid timing paths found"})
                 return
 
             # Filter paths if needed
@@ -187,12 +208,22 @@ def main_ui():
                     st.json([p.dict() for p in parsed_paths])
 
             # Run analysis
-            analyzer = TimingAnalyzer(config["api_key"])
-            analyses = analyzer.analyze_paths(paths_to_analyze)
+            with st.spinner("Running AI analysis..."):
+                analyzer = TimingAnalyzer(config["api_key"])
+                analyses = analyzer.analyze_paths(paths_to_analyze)
+                
+                # Log analysis completion
+                log_action(username, "STA Analysis Completed", {
+                    "total_paths": len(analyses),
+                    "violated_paths": sum(1 for a in analyses if a.get('status') == 'VIOLATED')
+                })
 
             # Display results
             display_analysis_results(analyses, config)
             create_download_buttons(analyses, parsed_paths)
 
+    elif not config["api_key"]:
+        st.error("❌ API key is not configured. Please contact your administrator to set up the API key.")
+        show_instructions()
     else:
         show_instructions()
