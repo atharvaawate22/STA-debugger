@@ -1,7 +1,7 @@
 import json
 import hashlib
-import os
-from typing import Optional, Dict, Any
+import string
+from typing import Optional, Dict, Any, List
 from pathlib import Path
 
 # Path to users.json (relative to project root)
@@ -9,23 +9,24 @@ USERS_FILE = Path(__file__).parent.parent / "models" / "users.json"
 
 
 def _ensure_users_file():
-    """Ensure the users.json file exists"""
+    """Ensure the users.json file exists with empty dict"""
     USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
     if not USERS_FILE.exists():
-        # Create default admin user with password "admin" (SHA256)
-        default_admin = {
-            "admin": {
-                "password": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
-                "role": "admin"
-            }
-        }
         with open(USERS_FILE, 'w') as f:
-            json.dump(default_admin, f, indent=2)
+            json.dump({}, f, indent=2)
 
 
 def hash_password(password: str) -> str:
     """Hash password using SHA256"""
     return hashlib.sha256(password.encode()).hexdigest()
+
+
+def _is_hashed_password(value: str) -> bool:
+    """Check if a stored password already looks like a SHA-256 hex digest."""
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    hex_chars = set(string.hexdigits.lower())
+    return all(ch in hex_chars for ch in value.lower())
 
 
 def verify_password(password: str, hashed: str) -> bool:
@@ -48,8 +49,8 @@ def authenticate(username: str, password: str) -> Optional[Dict[str, str]]:
             user_data = users[username]
             stored_password = user_data.get("password", "")
             
-            # Verify password (support both plain and hashed)
-            if verify_password(password, stored_password) or password == stored_password:
+            # Only verify using hashed password (no plaintext support)
+            if verify_password(password, stored_password):
                 return {
                     "username": username,
                     "role": user_data.get("role", "user")
@@ -152,4 +153,61 @@ def delete_user(username: str) -> bool:
     except Exception as e:
         print(f"Error deleting user: {e}")
         return False
+
+
+def has_admin_user() -> bool:
+    """Check if at least one admin user exists"""
+    _ensure_users_file()
+    
+    try:
+        with open(USERS_FILE, 'r') as f:
+            users = json.load(f)
+        
+        return any(u.get("role") == "admin" for u in users.values())
+    except Exception as e:
+        print(f"Error checking admin users: {e}")
+        return False
+
+
+def user_exists(username: str) -> bool:
+    """Check if a username already exists"""
+    _ensure_users_file()
+    
+    try:
+        with open(USERS_FILE, 'r') as f:
+            users = json.load(f)
+        return username in users
+    except Exception as e:
+        print(f"Error checking user existence: {e}")
+        return False
+
+
+def ensure_secure_password_storage() -> List[str]:
+    """
+    Ensure all stored passwords are hashed.
+    Returns list of usernames that were migrated from plaintext.
+    """
+    _ensure_users_file()
+
+    migrated_users: List[str] = []
+    try:
+        with open(USERS_FILE, 'r') as f:
+            users = json.load(f)
+
+        updated = False
+        for username, data in users.items():
+            stored_password = data.get("password", "")
+            if stored_password and not _is_hashed_password(stored_password):
+                users[username]["password"] = hash_password(stored_password)
+                migrated_users.append(username)
+                updated = True
+
+        if updated:
+            with open(USERS_FILE, 'w') as f:
+                json.dump(users, f, indent=2)
+
+    except Exception as e:
+        print(f"Error securing passwords: {e}")
+
+    return migrated_users
 
