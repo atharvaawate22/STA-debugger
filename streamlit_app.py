@@ -86,8 +86,10 @@ def show_create_admin():
 
 def show_login():
     """Display login form"""
-    st.markdown('<h1 class="main-header">⚡ GenAI Timing Violation Debugger</h1>', unsafe_allow_html=True)
-    st.markdown("### AI-powered analysis for semiconductor timing closure")
+   st.markdown("<h1 style='text-align: center; color: #1e77b4; font-size: 2.5rem; margin-bottom: 1rem;'>GenAI Timing Violation Debugger</h1>", 
+                unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #666; font-size: 1.5rem; margin-bottom: 2rem;'>AI-powered analysis for semiconductor timing closure</h3>",
+                unsafe_allow_html=True)
     
     st.divider()
     
@@ -124,8 +126,10 @@ def show_login():
 
 def show_register():
     """Display registration form"""
-    st.markdown('<h1 class="main-header">⚡ GenAI Timing Violation Debugger</h1>', unsafe_allow_html=True)
-    st.markdown("### AI-powered analysis for semiconductor timing closure")
+    st.markdown("<h1 style='text-align: center; color: #1e77b4; font-size: 2.5rem; margin-bottom: 1rem;'>GenAI Timing Violation Debugger</h1>", 
+                unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #666; font-size: 1.5rem; margin-bottom: 2rem;'>AI-powered analysis for semiconductor timing closure</h3>",
+                unsafe_allow_html=True)
     
     st.divider()
     
