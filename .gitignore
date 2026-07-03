@@ -1,35 +1,22 @@
-# Virtual environments
+# Python
+__pycache__/
+*.pyc
 .venv/
 venv/
-venv library root/
-env/
+.pytest_cache/
 
-# Jupyter
-.ipynb_checkpoints/
-__pycache__/
+# Local database
+backend/*.db
 
-# Python
-*.pyc
-*.pyo
-*.pyd
-__pycache__/
-*.so
-.Python
+# Node
+frontend/node_modules/
+frontend/dist/
 
 # IDE
 .vscode/
 .idea/
 *.swp
-*.swo
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Data files (optional - exclude if large/sensitive)
-*.json
-*.csv
-*.pkl
-*.h5
-*.pt
-*.pth
