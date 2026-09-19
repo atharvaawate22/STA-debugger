@@ -23,3 +23,13 @@ def deep_paths_report() -> str:
 @pytest.fixture
 def single_setup_report() -> str:
     return (SAMPLE_DIR / "single_setup_path.txt").read_text()
+
+
+@pytest.fixture
+def adder_before() -> str:
+    return (SAMPLE_DIR / "adder_before.txt").read_text()
+
+
+@pytest.fixture
+def adder_after() -> str:
+    return (SAMPLE_DIR / "adder_after.txt").read_text()

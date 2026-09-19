@@ -14,6 +14,9 @@ class ChainStage(BaseModel):
     delay: float           # incremental delay of this stage (ns)
     time: float            # cumulative arrival time at this pin (ns)
     edge: str              # "rise" or "fall"
+    fanout: Optional[int] = None     # only present with report_checks -fields fanout
+    cap: Optional[float] = None      # load capacitance on the driven net
+    slew: Optional[float] = None     # transition time at this pin (ns)
 
 
 class TimingPath(BaseModel):
@@ -27,6 +30,7 @@ class TimingPath(BaseModel):
     capture_edge: Optional[float] = None    # capture clock edge time (~period)
     data_arrival_time: Optional[float] = None
     data_required_time: Optional[float] = None
+    external_delay: Optional[float] = None  # |input/output external delay| from the SDC (ns)
     slack: float
     status: str                             # "MET" or "VIOLATED"
     logic_chain: List[ChainStage]
@@ -35,6 +39,7 @@ class TimingPath(BaseModel):
 # ---------- rule engine output ----------
 
 class Suggestion(BaseModel):
+    rule_id: str = ""      # which rule produced this (see rules.py)
     fix: str
     priority: str          # "high", "medium", "low"
     reason: str
@@ -50,6 +55,12 @@ class PathDiagnosis(BaseModel):
     bottleneck_delay: Optional[float] = None
     bottleneck_share: Optional[float] = None  # fraction of total logic delay
     clock_skew: Optional[float] = None        # capture latency - launch latency
+    # Setup only: how much of the combinational delay must go to close the path.
+    required_speedup: Optional[float] = None
+    # Longest run of consecutive stages built from the same cell family.
+    repeated_cell: Optional[str] = None
+    repeated_run: int = 0
+    repeated_delay: Optional[float] = None
     suggestions: List[Suggestion] = []
 
 
@@ -66,11 +77,56 @@ class ReportSummary(BaseModel):
     tns: float = 0.0               # total negative slack
     setup_violations: int = 0
     hold_violations: int = 0
+    skipped_blocks: int = 0        # "Startpoint:" blocks too broken to parse
+
+
+class ViolationGroup(BaseModel):
+    """Violating paths that share a root cause, so one fix can clear several."""
+    kind: str                      # shared_logic | endpoint_bus | startpoint | bottleneck_cell
+    key: str
+    check_type: str                # setup | hold
+    path_indices: List[int]        # indices into AnalysisResult.paths
+    count: int
+    worst_slack: float
+    tns: float                     # sum of the group's negative slacks
+    tns_share: float               # group tns / report tns
+    detail: str
 
 
 class AnalysisResult(BaseModel):
     summary: ReportSummary
     paths: List[AnalyzedPath]
+    groups: List[ViolationGroup] = []   # default keeps older saved analyses loadable
+
+
+# ---------- comparing two reports ----------
+
+class PathDelta(BaseModel):
+    startpoint: str
+    endpoint: str
+    check_type: str
+    before: Optional[float] = None
+    after: Optional[float] = None
+    delta: Optional[float] = None
+
+
+class ComparisonResult(BaseModel):
+    base_id: int
+    new_id: int
+    base_filename: str
+    new_filename: str
+    wns_before: Optional[float] = None
+    wns_after: Optional[float] = None
+    tns_before: float
+    tns_after: float
+    violations_before: int
+    violations_after: int
+    fixed: List[PathDelta]
+    improved: List[PathDelta]
+    regressed: List[PathDelta]
+    unchanged: List[PathDelta]
+    new_violations: List[PathDelta]
+    dropped: List[PathDelta]       # violated before, absent from the new report
 
 
 # ---------- API ----------

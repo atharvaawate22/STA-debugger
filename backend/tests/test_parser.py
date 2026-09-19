@@ -84,3 +84,60 @@ def test_empty_and_garbage_input():
     assert STAParser("no timing data here").parse() == []
     # A Startpoint header without a slack line is not a usable path.
     assert STAParser("Startpoint: r1 (flip-flop)\nEndpoint: r2").parse() == []
+
+
+def test_parses_fanout_cap_slew_columns(adder_before):
+    paths = STAParser(adder_before).parse()
+    path = next(p for p in paths if p.endpoint == "sumreg[4]" and p.path_type == "max")
+
+    m1 = next(s for s in path.logic_chain if s.instance == "m1/X")
+    assert m1.fanout == 9
+    assert m1.cap == 0.045
+    assert m1.slew == 0.14
+    assert m1.delay == 0.41
+    assert m1.time == 0.93
+
+    # Lines with fewer columns (the flop's clock pin has no fanout or cap) must
+    # not shift values into the wrong field.
+    clk = path.logic_chain[0]
+    assert clk.instance == "a0/CLK"
+    assert clk.fanout is None and clk.cap is None
+    assert clk.slew == 0.05 and clk.delay == 0.0
+
+
+def test_clock_lines_with_extra_columns(adder_before):
+    path = STAParser(adder_before).parse()[0]
+    assert path.launch_clock_latency == 0.20
+    assert path.capture_clock_latency == 0.20
+    assert path.capture_edge == 2.00
+
+
+def test_plain_reports_have_no_fanout(sky130_report):
+    stage = STAParser(sky130_report).parse()[1].logic_chain[2]
+    assert stage.fanout is None and stage.cap is None and stage.slew is None
+
+
+def test_external_delay_parsed(sky130_report, basic_report):
+    assert STAParser(sky130_report).parse()[1].external_delay == 1.00   # output delay
+    assert STAParser(basic_report).parse()[0].external_delay == 0.00   # input delay
+
+
+def test_path_type_inferred_when_missing(basic_report):
+    text = basic_report.replace("Path Type: min\n", "").replace("Path Type: max\n", "")
+    hold, setup = STAParser(text).parse()
+    assert hold.path_type == "min"     # from "library hold time"
+    assert setup.path_type == "max"    # from "library setup time"
+
+
+def test_truncated_block_is_counted_not_fatal(sky130_report):
+    truncated = sky130_report + "\nStartpoint: r9 (flip-flop)\nEndpoint: r10\n  0.10 0.10 ^ r9/Q (DFF_X1)\n"
+    parser = STAParser(truncated)
+    paths = parser.parse()
+    assert len(paths) == 2          # the good blocks survive
+    assert parser.skipped == 1
+
+
+def test_startpoint_word_inside_a_line_does_not_split(single_setup_report):
+    # A description line that merely contains "Startpoint:" mid-line is not a new block.
+    text = single_setup_report.replace("Path Group:", "Path Group: (see Startpoint: note)\n#", 1)
+    assert len(STAParser(text).parse()) == 1
