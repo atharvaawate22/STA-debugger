@@ -12,6 +12,7 @@ export default function Navbar({ onLogout }) {
         <div className="nav-links">
           <NavLink to="/" end>New</NavLink>
           <NavLink to="/history">History</NavLink>
+          <NavLink to="/compare">Compare</NavLink>
           {admin && <NavLink to="/admin">Admin</NavLink>}
         </div>
         <div className="nav-user">

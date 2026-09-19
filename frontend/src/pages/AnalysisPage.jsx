@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../api'
+import GroupsPanel from '../components/GroupsPanel'
 import PathCard from '../components/PathCard'
 import SlackChart from '../components/SlackChart'
 import SummaryCards from '../components/SummaryCards'
@@ -11,6 +12,7 @@ export default function AnalysisPage() {
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('violated')
   const [apiKeys, setApiKeys] = useState([])
+  const [group, setGroup] = useState(null) // { key, indices } of the selected root-cause group
 
   useEffect(() => {
     api.getAnalysis(id).then(setAnalysis).catch((err) => setError(err.message))
@@ -27,7 +29,9 @@ export default function AnalysisPage() {
   const { summary, paths } = analysis.result
   const shown = paths
     .map((p, index) => ({ ...p, index }))
-    .filter((p) => filter === 'all' || p.path.status === 'VIOLATED')
+    .filter((p) =>
+      group ? group.indices.includes(p.index) : filter === 'all' || p.path.status === 'VIOLATED',
+    )
 
   const handleDownload = () => {
     const blob = new Blob([JSON.stringify(analysis.result, null, 2)], {
@@ -53,20 +57,29 @@ export default function AnalysisPage() {
 
       <SummaryCards summary={summary} />
 
+      {summary.skipped_blocks > 0 && (
+        <p className="error">
+          {summary.skipped_blocks} path block(s) in the report could not be parsed and were
+          skipped (truncated or in an unsupported format).
+        </p>
+      )}
+
       {paths.length > 1 && <SlackChart paths={paths} />}
 
+      <GroupsPanel groups={analysis.result.groups} activeKey={group?.key} onSelect={setGroup} />
+
       <div className="path-filter">
-        <h2>// Timing Paths</h2>
+        <h2>// Timing Paths{group ? ` (filtered: ${group.indices.length})` : ''}</h2>
         <div className="toggle">
           <button
             className={filter === 'violated' ? 'active' : ''}
-            onClick={() => setFilter('violated')}
+            onClick={() => { setGroup(null); setFilter('violated') }}
           >
             Violations ({summary.violated_paths})
           </button>
           <button
             className={filter === 'all' ? 'active' : ''}
-            onClick={() => setFilter('all')}
+            onClick={() => { setGroup(null); setFilter('all') }}
           >
             All paths ({summary.total_paths})
           </button>

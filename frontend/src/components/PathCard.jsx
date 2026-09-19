@@ -11,7 +11,10 @@ function DelayBar({ stage, maxDelay }) {
       <div className="stage-bar-track">
         <div className="stage-bar" style={{ width: `${width}%` }} />
       </div>
-      <span className="stage-delay">{stage.delay.toFixed(2)} ns</span>
+      <span className="stage-delay">
+        {stage.fanout != null && <em className="stage-fanout">fo {stage.fanout} </em>}
+        {stage.delay.toFixed(2)} ns
+      </span>
     </div>
   )
 }
@@ -70,6 +73,12 @@ export default function PathCard({ analysisId, pathIndex, analyzed, apiKeys = []
             {diagnosis.clock_skew != null && (
               <span>Clock skew: <strong>{diagnosis.clock_skew} ns</strong></span>
             )}
+            {diagnosis.repeated_run >= 2 && (
+              <span>
+                Repeated cell: <strong>{diagnosis.repeated_run}x</strong> in a row
+                ({diagnosis.repeated_delay} ns)
+              </span>
+            )}
             {diagnosis.bottleneck_instance && (
               <span>
                 Bottleneck: <strong>{diagnosis.bottleneck_instance}</strong>{' '}
@@ -97,6 +106,7 @@ export default function PathCard({ analysisId, pathIndex, analyzed, apiKeys = []
                   <li key={i}>
                     <span className={`badge badge-${s.priority}`}>{s.priority}</span>{' '}
                     <strong>{s.fix}</strong>
+                    {s.rule_id && <code className="rule-id">{s.rule_id}</code>}
                     <p className="muted">{s.reason}</p>
                   </li>
                 ))}

@@ -75,6 +75,9 @@ export const api = {
 
   deleteAnalysis: (id) => request(`/api/analyses/${id}`, { method: 'DELETE' }),
 
+  compareAnalyses: (baseId, newId) =>
+    request(`/api/analyses/compare?base_id=${baseId}&new_id=${newId}`),
+
   // API-key pool visible to any signed-in user (labels only, no secrets).
   listApiKeys: () => request('/api/api-keys'),
 

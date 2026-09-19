@@ -3,6 +3,7 @@ import { clearSession, getToken, isAdmin } from './api'
 import Navbar from './components/Navbar'
 import AdminPage from './pages/AdminPage'
 import AnalysisPage from './pages/AnalysisPage'
+import ComparePage from './pages/ComparePage'
 import HistoryPage from './pages/HistoryPage'
 import LoginPage from './pages/LoginPage'
 import UploadPage from './pages/UploadPage'
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/" element={<RequireAuth><UploadPage /></RequireAuth>} />
           <Route path="/history" element={<RequireAuth><HistoryPage /></RequireAuth>} />
           <Route path="/analyses/:id" element={<RequireAuth><AnalysisPage /></RequireAuth>} />
+          <Route path="/compare" element={<RequireAuth><ComparePage /></RequireAuth>} />
           <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
