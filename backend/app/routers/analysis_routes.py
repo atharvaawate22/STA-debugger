@@ -7,12 +7,14 @@ from .. import config
 from ..auth import get_current_user
 from ..database import get_db
 from ..db_models import Analysis, ApiKey, User
+from ..compare import compare_results
 from ..llm import ExplanationError, explain_path
 from ..rules import analyze_report
 from ..schemas import (
     AnalysisDetail,
     AnalysisListItem,
     AnalysisResult,
+    ComparisonResult,
     ExplainRequest,
     ExplainResponse,
 )
@@ -46,7 +48,8 @@ async def create_analysis(
     except UnicodeDecodeError:
         raise HTTPException(400, "Report must be a plain-text file.")
 
-    paths = STAParser(text).parse()
+    parser = STAParser(text)
+    paths = parser.parse()
     if not paths:
         raise HTTPException(
             422,
@@ -54,7 +57,7 @@ async def create_analysis(
             "'Startpoint:' blocks and slack lines.",
         )
 
-    result = analyze_report(paths)
+    result = analyze_report(paths, skipped_blocks=parser.skipped)
 
     analysis = Analysis(
         user_id=user.id,
@@ -91,6 +94,23 @@ def list_analyses(user: User = Depends(get_current_user), db: Session = Depends(
             summary=result["summary"],
         ))
     return items
+
+
+@router.get("/compare", response_model=ComparisonResult)
+def compare(
+    base_id: int,
+    new_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Declared before /{analysis_id} so "compare" isn't parsed as an id.
+    base = _get_owned_analysis(base_id, user, db)
+    new = _get_owned_analysis(new_id, user, db)
+    return compare_results(
+        AnalysisResult.model_validate_json(base.result_json),
+        AnalysisResult.model_validate_json(new.result_json),
+        base.id, new.id, base.filename, new.filename,
+    )
 
 
 @router.get("/{analysis_id}", response_model=AnalysisDetail)

@@ -240,3 +240,69 @@ def test_explain_rejects_unknown_key(client, auth_headers, sky130_report):
         json={"api_key_id": 999},
     )
     assert resp.status_code == 400
+
+
+def _upload(client, headers, name, text):
+    response = client.post(
+        "/api/analyses",
+        headers=headers,
+        files={"file": (name, text.encode(), "text/plain")},
+    )
+    assert response.status_code == 201
+    return response.json()["id"]
+
+
+def test_upload_returns_groups_and_rule_ids(client, auth_headers, adder_before):
+    _upload(client, auth_headers, "adder_before.txt", adder_before)
+    listing = client.get("/api/analyses", headers=auth_headers).json()
+    detail = client.get(f"/api/analyses/{listing[0]['id']}", headers=auth_headers).json()
+
+    assert detail["result"]["groups"][0]["kind"] == "shared_logic"
+    first_fix = next(p for p in detail["result"]["paths"] if p["path"]["status"] == "VIOLATED")
+    assert first_fix["diagnosis"]["suggestions"][0]["rule_id"]
+
+
+def test_compare_two_analyses(client, auth_headers, adder_before, adder_after):
+    base = _upload(client, auth_headers, "before.txt", adder_before)
+    new = _upload(client, auth_headers, "after.txt", adder_after)
+
+    response = client.get(f"/api/analyses/compare?base_id={base}&new_id={new}", headers=auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["base_filename"] == "before.txt"
+    assert body["wns_before"] == -0.83 and body["wns_after"] == -0.47
+    assert len(body["fixed"]) == 2
+
+
+def test_compare_cannot_use_someone_elses_analysis(client, auth_headers, adder_before):
+    mine = _upload(client, auth_headers, "mine.txt", adder_before)
+    other = _register(client, "mallory")
+    theirs = _upload(client, other, "theirs.txt", adder_before)
+
+    response = client.get(f"/api/analyses/compare?base_id={mine}&new_id={theirs}", headers=auth_headers)
+    assert response.status_code == 404
+
+
+def test_analysis_saved_before_groups_existed_still_loads(client, auth_headers, session_factory, sky130_report):
+    """Old rows in the database have no `groups` / `rule_id`; they must still open."""
+    import json
+
+    from app.db_models import Analysis
+
+    analysis_id = _upload(client, auth_headers, "old.txt", sky130_report)
+    db = session_factory()
+    try:
+        row = db.query(Analysis).filter(Analysis.id == analysis_id).one()
+        data = json.loads(row.result_json)
+        data.pop("groups")
+        for p in data["paths"]:
+            for s in p["diagnosis"]["suggestions"]:
+                s.pop("rule_id")
+        row.result_json = json.dumps(data)
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(f"/api/analyses/{analysis_id}", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["result"]["groups"] == []
