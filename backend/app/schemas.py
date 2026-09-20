@@ -172,6 +172,8 @@ class ExplainRequest(BaseModel):
 
 class ExplainResponse(BaseModel):
     explanation: str
+    # Numbers in the text that don't appear in the diagnosis (possible invention).
+    unverified_numbers: List[str] = []
 
 
 # ---------- API keys (admin-managed pool) ----------

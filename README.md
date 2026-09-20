@@ -1,6 +1,6 @@
 # STA Debugger
 
-A full-stack tool that parses OpenSTA static timing analysis reports and works out *why* paths fail: it diagnoses each violation with a rule engine, groups violations that share a root cause, and compares reports before and after a fix.
+STA Debugger reads OpenSTA `report_checks` output and explains why paths fail timing. A deterministic rule engine suggests fixes per path, such as the next drive strength for a slow cell or a carry-lookahead for a ripple-carry chain. It also checks whether a hold fix would break the matching setup path. Violations that share logic are grouped, so you can see which fix helps the most paths, and two reports can be compared to check that a change worked. An LLM explanation is available but optional.
 
 **Stack:** FastAPI + SQLAlchemy + SQLite backend, React (Vite) frontend, JWT auth with an admin role, pytest.
 
@@ -50,7 +50,7 @@ Pick two saved analyses; paths are matched by startpoint, endpoint, check type a
 
 ### 5. Optional AI explanations (`backend/app/llm.py`)
 
-Each violated path has an "Explain with AI" button that turns the rule engine's diagnosis into prose using Groq. The model is told to explain only the listed suggestions. It is optional: the app is fully functional without a key. Keys are an admin-managed pool; users pick one by label and never see or paste a raw key. The server operator can alternatively set `GROQ_API_KEY`.
+Each violated path has an "Explain with AI" button that turns the rule engine's diagnosis into prose using Groq. The model is told to explain only the listed suggestions, and every number in its answer is checked against the diagnosis it was given. Any number it can't be traced to the data (a plain number must match a data value; a percentage must match a fraction such as the bottleneck share) is listed in a warning under the explanation. It is optional: the app is fully functional without a key. Keys are an admin-managed pool; users pick one by label and never see or paste a raw key. The server operator can alternatively set `GROQ_API_KEY`.
 
 ## Screens
 
@@ -95,7 +95,7 @@ cd backend
 python -m pytest
 ```
 
-72 tests cover the parser (including the fanout-column format, clock lines with extra columns, truncated blocks), each rule, hold/setup interplay, grouping, report comparison, and the API (auth, per-user isolation, compare access checks, and loading analyses saved before groups/rule ids existed).
+87 tests cover the parser (including the fanout-column format, clock lines with extra columns, truncated blocks), each rule, hold/setup interplay, grouping, report comparison, the Groq client (with the HTTP call mocked: bad key, server error, malformed or empty replies, invented numbers), and the API (auth, per-user isolation, compare access checks, and loading analyses saved before groups/rule ids existed).
 
 ## Project layout
 

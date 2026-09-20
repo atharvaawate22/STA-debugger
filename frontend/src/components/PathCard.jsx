@@ -24,6 +24,7 @@ export default function PathCard({ analysisId, pathIndex, analyzed, apiKeys = []
   const violated = path.status === 'VIOLATED'
   const [open, setOpen] = useState(false)
   const [explanation, setExplanation] = useState('')
+  const [unverified, setUnverified] = useState([]) // numbers the AI quoted that aren't in the data
   const [explainError, setExplainError] = useState('')
   const [explaining, setExplaining] = useState(false)
   const [keyId, setKeyId] = useState('')
@@ -38,6 +39,7 @@ export default function PathCard({ analysisId, pathIndex, analyzed, apiKeys = []
       const chosen = keyId ? Number(keyId) : (apiKeys.length === 1 ? apiKeys[0].id : null)
       const data = await api.explainPath(analysisId, pathIndex, chosen)
       setExplanation(data.explanation)
+      setUnverified(data.unverified_numbers || [])
     } catch (err) {
       setExplainError(err.message)
     } finally {
@@ -117,7 +119,15 @@ export default function PathCard({ analysisId, pathIndex, analyzed, apiKeys = []
           {violated && (
             <div className="explain-section">
               {explanation ? (
-                <blockquote className="explanation">{explanation}</blockquote>
+                <>
+                  <blockquote className="explanation">{explanation}</blockquote>
+                  {unverified.length > 0 && (
+                    <p className="error">
+                      Could not verify {unverified.join(', ')} against the report data —
+                      check the suggestions above rather than trusting the AI text.
+                    </p>
+                  )}
+                </>
               ) : apiKeys.length === 0 ? (
                 <p className="muted">
                   AI explanations are unavailable — no API key has been provisioned by

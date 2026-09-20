@@ -156,11 +156,9 @@ def explain(
     api_key = _resolve_api_key(body.api_key_id, db)
 
     try:
-        explanation = explain_path(result.paths[path_index], api_key)
+        return explain_path(result.paths[path_index], api_key)
     except ExplanationError as exc:
         raise HTTPException(502, str(exc))
-
-    return ExplainResponse(explanation=explanation)
 
 
 def _resolve_api_key(api_key_id, db: Session) -> str:

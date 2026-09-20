@@ -306,3 +306,31 @@ def test_analysis_saved_before_groups_existed_still_loads(client, auth_headers, 
     response = client.get(f"/api/analyses/{analysis_id}", headers=auth_headers)
     assert response.status_code == 200
     assert response.json()["result"]["groups"] == []
+
+
+def _fake_groq(monkeypatch, text):
+    import requests
+
+    class Reply:
+        status_code = 200
+        ok = True
+
+        def json(self):
+            return {"choices": [{"message": {"content": text}}]}
+
+    monkeypatch.setattr(requests, "post", lambda *a, **k: Reply())
+
+
+def test_explain_flags_numbers_missing_from_the_data(client, auth_headers, sky130_report, monkeypatch):
+    from app import config
+
+    monkeypatch.setattr(config, "GROQ_API_KEY", "test-key")
+    _fake_groq(monkeypatch, "The path misses by 0.18 ns and runs at 900 MHz.")
+    analysis_id = _upload(client, auth_headers, "r.txt", sky130_report)
+
+    # Index 1 is the violated path in this report.
+    response = client.post(
+        f"/api/analyses/{analysis_id}/paths/1/explain", headers=auth_headers, json={}
+    )
+    assert response.status_code == 200
+    assert response.json()["unverified_numbers"] == ["900"]
