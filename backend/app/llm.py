@@ -29,8 +29,8 @@ _SYSTEM_PROMPT = (
     "are not in the data. No markdown headings or bullet lists."
 )
 
-# A number, optionally followed by a percent sign.
-_NUMBER = re.compile(r"(\d+(?:\.\d+)?)(\s*%)?")
+# A number, optionally followed by a percent sign or the word spelled out.
+_NUMBER = re.compile(r"(\d+(?:\.\d+)?)(\s*%|\s+per\s?cent(?:age)?\b)?", re.IGNORECASE)
 
 # Rounding slack when comparing a quoted number to the data (report values are
 # printed to two decimals; percentages are rounded to whole numbers).

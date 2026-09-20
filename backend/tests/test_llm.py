@@ -110,6 +110,16 @@ def test_percentages_match_fractions_in_the_data(violated):
     assert find_unsupported_numbers(f"one cell is {share + 20}% of the delay", violated) == [f"{share + 20}%"]
 
 
+def test_percentages_spelled_out_are_treated_as_percentages(violated):
+    share = round(violated.diagnosis.bottleneck_share * 100)
+    # "35 percent" means the same as "35%" and must not be flagged over the wording.
+    assert find_unsupported_numbers(f"one cell is {share} percent of the delay", violated) == []
+    assert find_unsupported_numbers(f"one cell is {share} per cent of the delay", violated) == []
+    assert find_unsupported_numbers(f"one cell is {share + 20} percent of the delay", violated) == [
+        f"{share + 20}%"
+    ]
+
+
 def test_sign_is_ignored_and_duplicates_reported_once(violated):
     assert find_unsupported_numbers("miss of -0.18 ns", violated) == []
     assert find_unsupported_numbers("about 99.9 or 99.9 ns", violated) == ["99.9"]
